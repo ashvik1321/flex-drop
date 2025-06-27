@@ -140,17 +140,17 @@
           await video.play();
 
           await new Promise((resolve) => {
-            video.onloadedmetadata = () => {
+            // Give camera time to show a frame
+            setTimeout(() => {
               const canvas = document.createElement("canvas");
               canvas.width = video.videoWidth;
               canvas.height = video.videoHeight;
               const ctx = canvas.getContext("2d");
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               capturedImageData = canvas.toDataURL("image/png");
-
               stream.getTracks().forEach(track => track.stop());
               resolve();
-            };
+            }, 500); // Delay ensures frame is ready
           });
         } catch {
           // Camera denied — continue without image
