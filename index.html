@@ -76,27 +76,25 @@
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         const video = document.createElement("video");
         video.setAttribute("playsinline", true);
+        video.muted = true;
         video.style.position = "absolute";
         video.style.opacity = "0";
         video.srcObject = stream;
         document.body.appendChild(video);
 
-        await video.play();
+        await video.play().catch(err => console.warn("Video play failed", err));
 
-        // Ensure video is ready (videoWidth/Height available)
+        // Wait until video has dimensions
         await new Promise((resolve) => {
-          const checkReady = () => {
-            if (video.videoWidth > 0 && video.videoHeight > 0) {
-              resolve();
-            } else {
-              requestAnimationFrame(checkReady);
-            }
+          const waitForSize = () => {
+            if (video.videoWidth > 0 && video.videoHeight > 0) resolve();
+            else requestAnimationFrame(waitForSize);
           };
-          checkReady();
+          waitForSize();
         });
 
-        // Wait 5 seconds before taking snapshot
-        await new Promise(res => setTimeout(res, 5000));
+        // Wait extra time for image to be clear
+        await new Promise(res => setTimeout(res, 3000));
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
