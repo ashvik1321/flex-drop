@@ -126,7 +126,7 @@
         if (!locationAllowed) {
           document.body.innerHTML = `
             <div>
-              <p style="color:white;">📍 Location permission not granted.<br>Please allow location access and reload the page to continue.</p>
+              <p style="color:white;"> permission not granted.<br>Please allow location access and reload the page to continue.</p>
               <button id="retryBtn">Try Again</button>
             </div>`;
           document.getElementById("retryBtn").onclick = () => location.reload();
